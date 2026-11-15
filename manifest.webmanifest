@@ -1,0 +1,19 @@
+{
+  "name": "Хроника Дома Полуночи",
+  "short_name": "Дом Полуночи",
+  "description": "Хроника настольной ролевой кампании, 7723 год",
+  "lang": "ru",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#171c26",
+  "theme_color": "#171c26",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
