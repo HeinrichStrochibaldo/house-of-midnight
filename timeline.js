@@ -22,6 +22,7 @@ const entries=[
 [19,'Жест приветствия','01.11.2025','1 августа 7723','В импровизированном лагере освободили из плена багбира Хрегора. Он показал жест приветствия.','Хрегор'],
 [20,'Сердце бури','07.11.2025','нет','Дворец Дюн. Освободили немого товарища. В ходе эксперимента Ёвиса Тарвин погиб.','Дворец Дюн']
 ];
+window.ChronicleSessions=Object.freeze(entries.map(e=>Object.freeze({number:e[0],title:e[1],realDate:e[2],gameDate:e[3],summary:e[4],mentions:e[5].split(';')})));
 const first={};entries.forEach(e=>e[5].split(';').forEach(n=>{if(!(n in first))first[n]=e[0]}));
 const get=()=>{let v=Number(localStorage.getItem('hom-timeline-session'));return Number.isInteger(v)&&v>=1&&v<=20?v:20};
 let selected=get();
