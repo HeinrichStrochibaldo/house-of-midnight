@@ -122,15 +122,21 @@ const dossier=(id,n)=>{const r=snapshot(id,n);if(!r)return '';const rel=related(
 
 function renderGraph(app,n){
 const all=visibleLinks(n),entityMap=new Map(visible(n).map(r=>[r.id,r]));
-app.innerHTML='<h2>Паутина связей · сессия №'+n+'</h2><p class="muted">Перетаскивайте поле, увеличивайте жестом или кнопками. Нажмите на узел, чтобы открыть досье.</p><div class="card"><label for="graph-type">Тип сущностей</label> <select id="graph-type" style="background:var(--panel);color:var(--text);padding:8px;border:1px solid var(--line);border-radius:8px"><option value="all">Все</option><option value="person">Персонажи</option><option value="place">Места</option><option value="faction">Фракции</option><option value="item">Предметы</option></select> <button id="graph-zoom-in" aria-label="Приблизить">＋</button> <button id="graph-zoom-out" aria-label="Отдалить">−</button> <button id="graph-reset">Сбросить вид</button><div id="graph-canvas" style="margin-top:12px;overflow:hidden;border:1px solid var(--line);border-radius:12px;background:var(--bg);height:min(62vh,550px);min-height:300px;touch-action:none;position:relative"></div><p id="graph-count" class="muted" aria-live="polite"></p></div>';
+app.innerHTML='<h2>Паутина связей · сессия №'+n+'</h2><p class="muted">Перемещайте поле одним пальцем, масштабируйте двумя пальцами или кнопками. Нажмите на узел, чтобы открыть досье.</p><div class="card"><label for="graph-type">Тип сущностей</label> <select id="graph-type" style="background:var(--panel);color:var(--text);padding:8px;border:1px solid var(--line);border-radius:8px"><option value="all">Все</option><option value="person">Персонажи</option><option value="place">Места</option><option value="faction">Фракции</option><option value="item">Предметы</option></select> <button id="graph-zoom-in" aria-label="Приблизить">＋</button> <button id="graph-zoom-out" aria-label="Отдалить">−</button> <button id="graph-reset">Сбросить вид</button><div id="graph-canvas" style="margin-top:12px;overflow:hidden;border:1px solid var(--line);border-radius:12px;background:var(--bg);height:min(62vh,550px);min-height:300px;touch-action:none;position:relative"></div><p id="graph-count" class="muted" aria-live="polite"></p></div>';
 const canvas=app.querySelector('#graph-canvas'),filter=app.querySelector('#graph-type'),count=app.querySelector('#graph-count');
 const NS='http://www.w3.org/2000/svg';
 const svg=document.createElementNS(NS,'svg');svg.setAttribute('viewBox','0 0 900 580');svg.setAttribute('width','100%');svg.setAttribute('height','100%');svg.setAttribute('role','img');svg.setAttribute('aria-label','Интерактивная схема подтверждённых связей');svg.style.display='block';canvas.appendChild(svg);
 const layer=document.createElementNS(NS,'g');svg.appendChild(layer);
-let scale=1,tx=0,ty=0,drag=null,moved=false;
+let scale=1,tx=0,ty=0,moved=false,gestureUsed=false;
+const pointers=new Map();
+let gesture=null;
 const apply=()=>layer.setAttribute('transform','translate('+tx+' '+ty+') scale('+scale+')');
-const zoom=(factor,x=450,y=290)=>{const next=Math.max(.45,Math.min(3.5,scale*factor));tx=x-(x-tx)*next/scale;ty=y-(y-ty)*next/scale;scale=next;apply()};
+const setZoom=(next,x=450,y=290)=>{next=Math.max(.45,Math.min(3.5,next));tx=x-(x-tx)*next/scale;ty=y-(y-ty)*next/scale;scale=next;apply()};
+const zoom=(factor,x=450,y=290)=>setZoom(scale*factor,x,y);
 const svgPoint=e=>{const rect=svg.getBoundingClientRect();return {x:(e.clientX-rect.left)*900/Math.max(1,rect.width),y:(e.clientY-rect.top)*580/Math.max(1,rect.height)}};
+const midpoint=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
+const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const startGesture=()=>{const points=[...pointers.values()];if(points.length===1){gesture={kind:'pan',start:points[0],tx,ty};return}if(points.length>=2){const center=midpoint(points[0],points[1]);gesture={kind:'pinch',center,distance:Math.max(1,distance(points[0],points[1])),scale,tx,ty};gestureUsed=true;moved=true}};
 const node=(tag,attrs,text)=>{const el=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,String(v));if(text!==undefined)el.textContent=text;return el};
 const draw=()=>{
 layer.replaceChildren();
@@ -139,17 +145,18 @@ const edges=all.filter(l=>selected==='all'||entityMap.get(l.from)?.type===select
 const ids=[...new Set(edges.flatMap(l=>[l.from,l.to]))].sort();
 const positions=new Map(ids.map((id,i)=>{const angle=2*Math.PI*i/Math.max(ids.length,1)-Math.PI/2;const ring=Math.floor(i/18);const radius=ids.length<5?155:210+ring*55;return [id,{x:450+radius*Math.cos(angle),y:290+radius*.86*Math.sin(angle)}]}));
 for(const l of edges){const a=positions.get(l.from),b=positions.get(l.to);const line=node('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:'#9290D4','stroke-opacity':'.38','stroke-width':'1.5'});const tip=node('title',{},l.relation+' · сессия №'+l.sourceSession);line.appendChild(tip);layer.appendChild(line)}
-for(const id of ids){const r=entityMap.get(id),p=positions.get(id);const g=node('g',{role:'button',tabindex:'0','aria-label':'Открыть досье: '+r.name});g.style.cursor='pointer';const colors={person:'#9290D4',place:'#7FB8A9',faction:'#D4A576',item:'#B5A0D9'};g.appendChild(node('circle',{cx:p.x,cy:p.y,r:12,fill:colors[r.type]||'#9290D4',stroke:'#171C26','stroke-width':2}));g.appendChild(node('text',{x:p.x,y:p.y+29,'text-anchor':'middle',fill:'currentColor','font-size':'12','paint-order':'stroke',stroke:'#171C26','stroke-width':3,'stroke-linejoin':'round'},r.name));g.addEventListener('click',()=>{if(!moved)focusEntity(id)});g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();focusEntity(id)}});layer.appendChild(g)}
+for(const id of ids){const r=entityMap.get(id),p=positions.get(id);const g=node('g',{role:'button',tabindex:'0','aria-label':'Открыть досье: '+r.name});g.style.cursor='pointer';const colors={person:'#9290D4',place:'#7FB8A9',faction:'#D4A576',item:'#B5A0D9'};g.appendChild(node('circle',{cx:p.x,cy:p.y,r:12,fill:colors[r.type]||'#9290D4',stroke:'#171C26','stroke-width':2}));g.appendChild(node('text',{x:p.x,y:p.y+29,'text-anchor':'middle',fill:'currentColor','font-size':'12','paint-order':'stroke',stroke:'#171C26','stroke-width':3,'stroke-linejoin':'round'},r.name));g.addEventListener('click',()=>{if(!moved&&!gestureUsed)focusEntity(id)});g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();focusEntity(id)}});layer.appendChild(g)}
 count.textContent='Узлов: '+ids.length+' · связей: '+edges.length;
 };
 filter.onchange=()=>{scale=1;tx=0;ty=0;apply();draw()};
 app.querySelector('#graph-zoom-in').onclick=()=>zoom(1.25);
 app.querySelector('#graph-zoom-out').onclick=()=>zoom(.8);
 app.querySelector('#graph-reset').onclick=()=>{scale=1;tx=0;ty=0;apply()};
-svg.addEventListener('pointerdown',e=>{const p=svgPoint(e);drag={id:e.pointerId,x:p.x,y:p.y,tx,ty};moved=false;svg.setPointerCapture(e.pointerId)});
-svg.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;const p=svgPoint(e);if(Math.hypot(p.x-drag.x,p.y-drag.y)>5)moved=true;tx=drag.tx+p.x-drag.x;ty=drag.ty+p.y-drag.y;apply()});
-const endDrag=e=>{if(drag?.id===e.pointerId){drag=null;setTimeout(()=>{moved=false},0)}};
+svg.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;pointers.set(e.pointerId,svgPoint(e));if(pointers.size===1){moved=false;gestureUsed=false}startGesture();svg.setPointerCapture(e.pointerId)});
+svg.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,svgPoint(e));const points=[...pointers.values()];if(!gesture)return;if(gesture.kind==='pan'&&points.length===1){const p=points[0];if(distance(p,gesture.start)>5)moved=true;tx=gesture.tx+p.x-gesture.start.x;ty=gesture.ty+p.y-gesture.start.y;apply()}else if(gesture.kind==='pinch'&&points.length>=2){const center=midpoint(points[0],points[1]);const next=Math.max(.45,Math.min(3.5,gesture.scale*distance(points[0],points[1])/gesture.distance));scale=next;tx=center.x-(gesture.center.x-gesture.tx)*next/gesture.scale;ty=center.y-(gesture.center.y-gesture.ty)*next/gesture.scale;apply();moved=true}});
+const endDrag=e=>{if(!pointers.has(e.pointerId))return;pointers.delete(e.pointerId);if(pointers.size)startGesture();else gesture=null};
 svg.addEventListener('pointerup',endDrag);svg.addEventListener('pointercancel',endDrag);
+svg.addEventListener('click',e=>{if(moved||gestureUsed){e.stopPropagation();e.preventDefault();moved=false;gestureUsed=false}},true);
 svg.addEventListener('wheel',e=>{e.preventDefault();const p=svgPoint(e);zoom(e.deltaY<0?1.1:.9,p.x,p.y)},{passive:false});
 draw();
 }
