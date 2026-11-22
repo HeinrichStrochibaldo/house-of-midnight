@@ -133,7 +133,7 @@ let gesture=null;
 const apply=()=>layer.setAttribute('transform','translate('+tx+' '+ty+') scale('+scale+')');
 const setZoom=(next,x=450,y=290)=>{next=Math.max(.45,Math.min(3.5,next));tx=x-(x-tx)*next/scale;ty=y-(y-ty)*next/scale;scale=next;apply()};
 const zoom=(factor,x=450,y=290)=>setZoom(scale*factor,x,y);
-const svgPoint=e=>{const rect=svg.getBoundingClientRect();return {x:(e.clientX-rect.left)*900/Math.max(1,rect.width),y:(e.clientY-rect.top)*580/Math.max(1,rect.height)}};
+const svgPoint=e=>{const rect=svg.getBoundingClientRect();const vb=svg.viewBox.baseVal;return {x:vb.x+(e.clientX-rect.left)*vb.width/Math.max(1,rect.width),y:vb.y+(e.clientY-rect.top)*vb.height/Math.max(1,rect.height)}};
 const midpoint=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const startGesture=()=>{const points=[...pointers.values()];if(points.length===1){gesture={kind:'pan',start:points[0],tx,ty};return}if(points.length>=2){const center=midpoint(points[0],points[1]);gesture={kind:'pinch',center,distance:Math.max(1,distance(points[0],points[1])),scale,tx,ty};gestureUsed=true;moved=true}};
@@ -143,7 +143,35 @@ layer.replaceChildren();
 const selected=filter.value;
 const edges=all.filter(l=>selected==='all'||entityMap.get(l.from)?.type===selected||entityMap.get(l.to)?.type===selected);
 const ids=[...new Set(edges.flatMap(l=>[l.from,l.to]))].sort();
-const positions=new Map(ids.map((id,i)=>{const angle=2*Math.PI*i/Math.max(ids.length,1)-Math.PI/2;const ring=Math.floor(i/18);const radius=ids.length<5?155:210+ring*55;return [id,{x:450+radius*Math.cos(angle),y:290+radius*.86*Math.sin(angle)}]}));
+const adjacency=new Map(ids.map(id=>[id,new Set()]));
+for(const l of edges){adjacency.get(l.from).add(l.to);adjacency.get(l.to).add(l.from)}
+const components=[],seen=new Set();
+for(const id of ids){if(seen.has(id))continue;const stack=[id],component=[];seen.add(id);while(stack.length){const next=stack.pop();component.push(next);for(const neighbor of adjacency.get(next))if(!seen.has(neighbor)){seen.add(neighbor);stack.push(neighbor)}}components.push(component.sort())}
+components.sort((a,b)=>b.length-a.length||a[0].localeCompare(b[0]));
+const positions=new Map();
+let offset=0;
+for(const component of components){
+const size=component.length,columns=Math.max(1,Math.ceil(Math.sqrt(size))),spacingX=150,spacingY=105;
+const centerX=offset+Math.max(180,(columns-1)*spacingX/2+90),centerY=290;
+component.forEach((id,i)=>{const angle=2*Math.PI*i/Math.max(size,1)-Math.PI/2;const radius=size===1?0:Math.max(95,Math.min(300,size*16));positions.set(id,{x:centerX+radius*Math.cos(angle),y:centerY+radius*.8*Math.sin(angle)})});
+offset=centerX+Math.max(180,(columns-1)*spacingX/2+90)+110;
+}
+// Deterministic relaxation: repulsion, edge attraction and label clearance.
+for(let step=0;step<95;step++){
+const forces=new Map(ids.map(id=>[id,{x:0,y:0}]));
+for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){
+const a=positions.get(ids[i]),b=positions.get(ids[j]);let dx=a.x-b.x,dy=a.y-b.y;
+if(Math.abs(dx)+Math.abs(dy)<.01){dx=1;dy=.1}
+const dist=Math.max(1,Math.hypot(dx,dy)),minDist=110;
+if(dist<minDist){const push=(minDist-dist)*.028;forces.get(ids[i]).x+=dx/dist*push;forces.get(ids[i]).y+=dy/dist*push;forces.get(ids[j]).x-=dx/dist*push;forces.get(ids[j]).y-=dy/dist*push}
+}
+for(const l of edges){const a=positions.get(l.from),b=positions.get(l.to),dx=b.x-a.x,dy=b.y-a.y,dist=Math.max(1,Math.hypot(dx,dy)),pull=(dist-175)*.006;forces.get(l.from).x+=dx/dist*pull;forces.get(l.from).y+=dy/dist*pull;forces.get(l.to).x-=dx/dist*pull;forces.get(l.to).y-=dy/dist*pull}
+for(const id of ids){const p=positions.get(id),f=forces.get(id);p.x+=Math.max(-8,Math.min(8,f.x));p.y+=Math.max(-8,Math.min(8,f.y))}
+}
+const xs=ids.map(id=>positions.get(id).x),ys=ids.map(id=>positions.get(id).y);
+const minX=Math.min(...xs,0)-105,maxX=Math.max(...xs,900)+105,minY=Math.min(...ys,0)-65,maxY=Math.max(...ys,580)+65;
+svg.setAttribute('viewBox',minX+' '+minY+' '+(maxX-minX)+' '+(maxY-minY));
+
 for(const l of edges){const a=positions.get(l.from),b=positions.get(l.to);const line=node('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:'#9290D4','stroke-opacity':'.38','stroke-width':'1.5'});const tip=node('title',{},l.relation+' · сессия №'+l.sourceSession);line.appendChild(tip);layer.appendChild(line)}
 for(const id of ids){const r=entityMap.get(id),p=positions.get(id);const g=node('g',{role:'button',tabindex:'0','aria-label':'Открыть досье: '+r.name});g.style.cursor='pointer';const colors={person:'#9290D4',place:'#7FB8A9',faction:'#D4A576',item:'#B5A0D9'};g.appendChild(node('circle',{cx:p.x,cy:p.y,r:12,fill:colors[r.type]||'#9290D4',stroke:'#171C26','stroke-width':2}));g.appendChild(node('text',{x:p.x,y:p.y+29,'text-anchor':'middle',fill:'currentColor','font-size':'12','paint-order':'stroke',stroke:'#171C26','stroke-width':3,'stroke-linejoin':'round'},r.name));g.addEventListener('click',()=>{if(!moved&&!gestureUsed)focusEntity(id)});g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();focusEntity(id)}});layer.appendChild(g)}
 count.textContent='Узлов: '+ids.length+' · связей: '+edges.length;
