@@ -98,6 +98,8 @@ const links=[
 ['damien','khrem','заказал кастеты у',9],['torvald','blue-sails','владелец',11],['dirk','last-oasis','бармен',12],
 ['misir','cornwell','направлялся в',14],['yovis','tarvin','эксперимент, в ходе которого Тарвин погиб',20]
 ].map(([from,to,relation,firstSession])=>({from,to,relation,firstSession,sourceSession:firstSession}));
+links.push(...[["chona","tarvin","подружилась с",6],["liam","grid","командир группы",6],["liam","chona","командир группы",6],["liam","erlin","командир группы",6],["yovis","ferrando","попросил помочь",6],["magnus","teprix","Теприкс раскрылся в сумке",3],["misir","last-oasis","встречен в",14],["antal","robert","расспрашивал о",11],["levora","robert","расспрашивала о",13],["arik","midnight","участвовал в совете",17],["ilson","midnight","участвовал в совете",17],["ferrando","midnight","эмиссар",6],["journal","reinveli","найден в руинах",13],["amphora","reinveli","найдена в руинах",13]].map(([from,to,relation,firstSession])=>({from,to,relation,firstSession,sourceSession:firstSession})));
+
 const archive=window.ChronicleArchive10||[];
 const archiveByNumber=new Map(archive.map(a=>[a.n,a]));
 const events=(window.ChronicleSessions||[]).map(e=>({...e,id:'session-'+e.number,sourceSession:e.number,archive:archiveByNumber.get(e.number)||null}));
