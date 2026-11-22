@@ -64,6 +64,28 @@ const records=[
 ['place','dunes','Дворец Дюн',20,'Упомянут во время событий «Сердца бури».']
 ].map(([type,id,name,firstSession,description])=>({type,id,name,firstSession,description,sourceSession:firstSession}));
 const changes=[
+{entityId:"magnus",session:3,field:'event',value:"Во время боя с волками в его сумке раскрылся Теприкс, из которого вырвался Разлом.",sourceSession:3},
+{entityId:"tarvin",session:4,field:'rumor',value:"Появились слухи о золотом ордене и прошлом родителей Тарвина; достоверность не установлена.",sourceSession:4},
+{entityId:"tarvin",session:6,field:'event',value:"Подружился с Чоной Плес.",sourceSession:6},
+{entityId:"damien",session:9,field:'event',value:"Заказал у Хрема Бородача кастеты, складывающиеся в число «69».",sourceSession:9},
+{entityId:"midnight",session:5,field:'event',value:"Партия вернулась в агентство 25 июня и получила новое задание.",sourceSession:5},
+{entityId:"midnight",session:17,field:'event',value:"Утром 26 июля состоялся совет с Ариком Гесто, Джонатаном Фризо, Ферандо Бэком и Илсоном Греем.",sourceSession:17},
+{entityId:"yovis",session:6,field:'event',value:"Попросил помочь эмиссару Фаррандо Бэку.",sourceSession:6},
+{entityId:"yovis",session:20,field:'event',value:"Провёл эксперимент, в ходе которого Тарвин погиб.",sourceSession:20},
+{entityId:"jonathan",session:5,field:'event',value:"Встретил партию при возвращении в Дом Полуночи.",sourceSession:5},
+{entityId:"jonathan",session:17,field:'event',value:"Присутствовал на совете Дома Полуночи.",sourceSession:17},
+{entityId:"ferrando",session:17,field:'event',value:"Присутствовал на совете Дома Полуночи.",sourceSession:17},
+{entityId:"chona",session:6,field:'event',value:"Подружилась с Тарвином.",sourceSession:6},
+{entityId:"westfield",session:4,field:'event',value:"Партия вернулась в город вечером 17 июня.",sourceSession:4},
+{entityId:"wolf-charter",session:9,field:'event',value:"Упомянута предыдущая драка с нашими агентами.",sourceSession:9},
+{entityId:"reinveli",session:11,field:'event',value:"Партия добралась до города днём 17 июля.",sourceSession:11},
+{entityId:"last-oasis",session:12,field:'event',value:"Стало известно, что бармен заведения — Дирк.",sourceSession:12},
+{entityId:"cornwell",session:16,field:'event',value:"Партия направлялась в сторону форта 21 июля.",sourceSession:16},
+{entityId:"misir",session:14,field:'event',value:"Собирался отправиться в форт Корнвелл.",sourceSession:14},
+{entityId:"robert",session:11,field:'event',value:"Мастер Анталь спрашивал о Роберте.",sourceSession:11},
+{entityId:"robert",session:13,field:'event',value:"Левора Тэн расспрашивала о Роберте.",sourceSession:13},
+{entityId:"hregor",session:19,field:'event',value:"Показал жест приветствия после освобождения из плена.",sourceSession:19},
+{entityId:"tarvin",session:20,field:'event',value:"Не выжил в ходе эксперимента Ёвиса.",sourceSession:20},
 {entityId:'martin',session:3,field:'status',value:'Найден мёртвым возле озера.',sourceSession:3},
 {entityId:'tarvin',session:20,field:'status',value:'Погиб в ходе эксперимента Ёвиса.',sourceSession:20},
 {entityId:'hregor',session:19,field:'status',value:'Освобождён из плена.',sourceSession:19}
@@ -90,7 +112,7 @@ const history=(id,n)=>changes.filter(c=>c.entityId===id&&c.session<=n).sort((a,b
 const related=(id,n)=>links.filter(l=>l.firstSession<=n&&(l.from===id||l.to===id)&&snapshot(l.from,n)&&snapshot(l.to,n));
 const visibleLinks=(n)=>links.filter(l=>l.firstSession<=n&&snapshot(l.from,n)&&snapshot(l.to,n));
 const root=()=>document.getElementById('app');
-const dossier=(id,n)=>{const r=snapshot(id,n);if(!r)return '';const rel=related(id,n);return '<article class="card"><span class="badge">'+escape(types[r.type]||r.type)+' · впервые: №'+r.firstSession+'</span><h3>'+escape(r.name)+'</h3><p>'+escape(r.description)+'</p>'+(r.status?'<p><strong>Статус:</strong> '+escape(r.status)+'</p>':'')+(rel.length?'<p class="muted">Связи: '+rel.map(l=>{const other=byId(l.from===id?l.to:l.from);return escape((other?other.name:'?')+' — '+l.relation)}).join('; ')+'</p>':'')+(history(id,n).length?'<p class="muted">Изменения: '+history(id,n).map(c=>'№'+c.session+': '+escape(c.value)).join('; ')+'</p>':'')+'<small class="muted">Источник: сессия №'+r.sourceSession+'</small></article>'};
+const dossier=(id,n)=>{const r=snapshot(id,n);if(!r)return '';const rel=related(id,n);return '<article class="card"><span class="badge">'+escape(types[r.type]||r.type)+' · впервые: №'+r.firstSession+'</span><h3>'+escape(r.name)+'</h3><p>'+escape(r.description)+'</p>'+(r.status?'<p><strong>Статус:</strong> '+escape(r.status)+'</p>':'')+(rel.length?'<p class="muted">Связи: '+rel.map(l=>{const other=byId(l.from===id?l.to:l.from);return escape((other?other.name:'?')+' — '+l.relation)}).join('; ')+'</p>':'')+(history(id,n).length?'<p class="muted">Изменения: '+history(id,n).map(c=>'№'+c.session+(c.field==='rumor'?' · слух':'')+': '+escape(c.value)).join('; ')+'</p>':'')+'<small class="muted">Источник: сессия №'+r.sourceSession+'</small></article>'};
 function show(section){const n=current(),app=root();if(!app)return;const type=Object.keys(types).find(t=>types[t]===section);if(type){const arr=visible(n).filter(r=>r.type===type);app.innerHTML='<h2>'+escape(section)+' · сессия №'+n+'</h2><p class="muted">Только сведения, известные к выбранной сессии. Источник указан в каждом досье.</p><div>'+arr.map(r=>dossier(r.id,n)).join('')+'</div>';return}
 if(section==='Хроника'){app.innerHTML='<h2>Хроника · по сессию №'+n+'</h2><p class="muted">Реальные и игровые даты указаны отдельно. События доступны по мере прохождения сессий.</p>'+visibleEvents(n).slice().reverse().map(e=>'<article class="card"><span class="badge">Сессия №'+e.number+' · Дата игры: '+escape(e.realDate)+' · Игровая дата: '+escape(e.gameDate)+'</span><h3>'+escape(e.title)+'</h3><p>'+escape(e.summary)+'</p>'+(e.archive?'<details><summary>Подробности из архива</summary><ul>'+e.archive.facts.map(f=>'<li>'+escape(f)+'</li>').join('')+'</ul>'+(e.archive.notes?'<p class="muted">Примечание: '+escape(e.archive.notes)+'</p>':'')+'<small class="muted">Источники: '+escape(e.archive.sources.join('; '))+'</small></details>':'')+'<small class="muted">Источник: сессия №'+e.sourceSession+'</small></article>').join('');return}
 if(section==='Поиск'){app.innerHTML='<h2>Поиск · по сессию №'+n+'</h2><p class="muted">Поиск по событиям и досье в границах выбранной сессии.</p><input id="chronicle-search" type="search" autocomplete="off" placeholder="Имя, место, событие…"><div id="chronicle-results" aria-live="polite"></div>';const input=app.querySelector('#chronicle-search'),out=app.querySelector('#chronicle-results');input.oninput=()=>{const term=input.value.trim().toLocaleLowerCase('ru');if(!term){out.innerHTML='';return}const matches=visible(n).filter(r=>{const state=snapshot(r.id,n);return state&&(state.name+' '+state.description+' '+(state.status||'')).toLocaleLowerCase('ru').includes(term)});const found=visibleEvents(n).filter(e=>(e.title+' '+e.summary+' '+e.mentions.join(' ')+(e.archive?' '+e.archive.facts.join(' '):'')).toLocaleLowerCase('ru').includes(term));out.innerHTML=matches.map(r=>dossier(r.id,n)).join('')+found.map(e=>'<article class="card"><span class="badge">Сессия №'+e.number+'</span><h3>'+escape(e.title)+'</h3><p>'+escape(e.summary)+'</p></article>').join('');if(!matches.length&&!found.length)out.innerHTML='<p class="muted">Совпадений нет.</p>'};return}
